@@ -1,8 +1,8 @@
 {
     "addresses": {
-        "0": "localhost:5000",
-        "1": "localhost:5001",
-        "2": "localhost:5002"
+        "0": "node-0:5000",
+        "1": "node-1:5000",
+        "2": "node-2:5000"
     },
     "network_timeout": 10.0,
     "backoff_factor": 2.0,

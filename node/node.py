@@ -46,20 +46,15 @@ class Node:
         uvicorn.run(self.app, host='0.0.0.0', port=port)
 
     async def reliable_broadcast(self, data):
-        hashed_data = json.dumps(data, sort_keys=True)
-        self.known_msg.add(hashed_data)
-        tasks = [
+        for link in self.reliable_links:
             asyncio.create_task(link.send('on_reliable_broadcast_message', data))
-            for link in self.reliable_links
-        ]
-        await asyncio.gather(*tasks)
 
     async def on_reliable_broadcast_message(self, request: fastapi.Request):
         data = await request.json()
         hashed_data = json.dumps(data, sort_keys=True)
         if hashed_data not in self.known_msg:
-            asyncio.create_task(self.reliable_broadcast(data))
-        self.on_reliable_casual_order_broadcast_message(data)
+            self.known_msg.add(hashed_data)
+            self.on_reliable_casual_order_broadcast_message(data)
         return None
 
     async def reliable_casual_order_broadcast(self, changes):
@@ -72,6 +67,7 @@ class Node:
         }
         self.send_seq_no += 1
         await self.reliable_broadcast(message)
+        self.on_reliable_casual_order_broadcast_message(message)
 
     def extract_msg_that_can_be_delivered(self):
         for i, msg in enumerate(self.msg_holdback):
@@ -101,8 +97,8 @@ class Node:
             logger.info(f'Considering operation upon {key}, self.table[key]: {self.table.get(key, None)}, '
                          f'candidate: {candidate}')
             if key in self.table and self.table[key]['clock'] > depends:
-                logger.fatal(f'IMPOSSIBLE! existing_clock: {self.table[key]['clock']} cannot be bigger '
-                             f'than depends: {depends}')
+                logger.fatal(f"IMPOSSIBLE! existing_clock: {self.table[key]['clock']} cannot be bigger "
+                             f"than depends: {depends}")
                 sys.exit(1)
             if (key not in self.table
                     or self.table[key]['clock'] < depends
@@ -118,7 +114,7 @@ class Node:
         return None
 
     async def get_everything_handler(self):
-        return {key: metadata['value'] for key, metadata in self.table}
+        return {key: metadata['value'] for key, metadata in self.table.items()}
 
     async def get_item_handler(self, key: str):
         return {'value': self.table[key]['value'] if key in self.table else None}
